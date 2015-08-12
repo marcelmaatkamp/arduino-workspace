@@ -1,0 +1,37 @@
+#######################################
+# Syntax Coloring Map For NewList
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+NewList	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+add	KEYWORD2
+insert KEYWORD2
+delete	KEYWORD2
+goNext	KEYWORD2
+goPrevious	KEYWORD2
+goFirst	KEYWORD2
+goLast	KEYWORD2
+goTo	KEYWORD2
+search	KEYWORD2
+getCurrent	KEYWORD2
+get	KEYWORD2
+isEmpty	KEYWORD2
+isFirst	KEYWORD2
+isLast	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+
+#######################################
+# Constants (LITERAL1)
+#######################################
