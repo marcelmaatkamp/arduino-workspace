@@ -6,61 +6,100 @@
 
 #include <LinkedList.h>
 
+bool debug = false;
+
 class Wifi {
-  public:
-   
+  public: 
    char const* ssid;
    int rssi;
    int encryptionType;
-   
-   // virtual void f() { x=1; }
+
 };
 
-LinkedList<Wifi> wifis = LinkedList<Wifi>();
+class WifiScan {
+  public:
+    WifiScan( int size )
+        : wifis( size ) 
+    {}
+    std::vector<Wifi*> wifis;
 
+   private:
+
+};
+
+LinkedList<Wifi*> wifis = LinkedList<Wifi*>();
 
 void setup() {
-  
   Serial.begin(115200);
 
-  // Set WiFi to station mode and disconnect from an AP if it was previously connected
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
-  delay(100);
-
+  
+  if(debug) { 
+    WiFi.printDiag(Serial);
+    Serial.setDebugOutput(true);
+  }
+  
   Serial.println("Setup done");
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
+WifiScan* wifiScan = new WifiScan(0);
 
-   Serial.println("scan start");
+void loop() {
+
+  Serial.print("scan .. ");
 
   int n = WiFi.scanNetworks();
-  Serial.println("scan done");
-  if (n == 0) {
-    Serial.println("no networks found");
-  } else {
-    Serial.print(n);
-    Serial.println(" networks found");
-    for (int i = 0; i < n; ++i) {
+  Serial.print(" found ");
+  Serial.print(n);
+  Serial.println(" networks.");
       
+    for (int i = 0; i < n; ++i) {
+
       Wifi* wifi = new Wifi();
       
       wifi->ssid = WiFi.SSID(i);
       wifi->rssi = WiFi.RSSI(i);
       wifi->encryptionType = WiFi.encryptionType(i);
-
-      wifis.add(wifi);
       
-      Serial.print(i + 1);
-      Serial.print(": ");
-      Serial.print(WiFi.SSID(i));
-      Serial.print(" (");
-      Serial.print(WiFi.RSSI(i));
-      Serial.print(")");
-      Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*");
+      wifiScan->wifis.push_back(wifi);
     }
-  }
+
+
+    for(std::vector<Wifi*>::iterator it = wifiScan->wifis.begin(); it != wifiScan->wifis.end(); ++it) {
+      Wifi* wifi = (*it);
+
+      Serial.print("|");
+      Serial.print(wifi->encryptionType);
+      Serial.print("|");
+      Serial.print(wifi->rssi);
+      Serial.print("|");
+      Serial.print(wifi->ssid);
+      Serial.println("|");
+
+      if(wifi->encryptionType==4) { 
+        
+        if (WiFi.status() == WL_CONNECTED) {
+
+        
+      }
+
+      // TKIP (WPA) = 2
+      // WEP = 5
+      // CCMP (WPA) = 4
+      // NONE = 7
+      // AUTO = 8
+
+      // delete: http://stackoverflow.com/questions/4645705/vector-erase-iterator
+
+      delete(wifi);
+    }   
+    wifiScan->wifis.clear();
+
+
+
+    // bool success = wifis.add(wifiScan);
+      
+ 
   Serial.println("");
 }
