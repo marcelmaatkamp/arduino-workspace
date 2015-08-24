@@ -37,28 +37,11 @@ void setup() {
   Serial.println("Setup done");
 }
 
-String getBSSIDMac(int index) {
-  String result = String("");
 
-  uint8_t* bssid = WiFi.BSSID(index);
-  for (byte i = 0; i < 6; i++) {
-    uint8_t value = bssid[i];
-    if (value < 10) {
-      result.concat("0");
-      result.concat(String(bssid[i], HEX));
 
-    } else {
-      result.concat(String(bssid[i], HEX));
-    }
-  }
-  return result;
-}
-
-bool connectToSSID(const char* ssid, int channel, uint8_t bssid[6], String bssidStr, int retry) {
+bool connectToSSID(const char* ssid, int channel, int retry) {
   Serial.print("[");
   Serial.print(ssid);
-  Serial.print("/");
-  Serial.print(bssidStr);
   Serial.print("/");
   Serial.print(channel);
   Serial.print("/");
@@ -74,7 +57,7 @@ bool connectToSSID(const char* ssid, int channel, uint8_t bssid[6], String bssid
   unsigned long now = millis();
   // WiFi.scan_cancel();
   
-  WiFi.begin(ssid, NULL, channel, bssid);
+  WiFi.begin(ssid, NULL);
   // wifi_station_set_auto_connect(false);
 
   // WiFi.waitForConnectResult();
@@ -89,8 +72,6 @@ bool connectToSSID(const char* ssid, int channel, uint8_t bssid[6], String bssid
     if (debug) {
       Serial.print("[");
       Serial.print(WiFi.status());
-      Serial.print("/");
-      Serial.print(WiFi.channel());
       Serial.print("]");
     }
     if (WiFi.status() == WL_CONNECTED) {
@@ -111,6 +92,23 @@ bool connectToSSID(const char* ssid, int channel, uint8_t bssid[6], String bssid
 
 }
 
+String getBSSIDMac(uint8_t* bssid) {
+  String result = String("");
+
+  for (byte i = 0; i < 6; i++) {
+    uint8_t value = bssid[i];
+    if (value < 10) {
+      result.concat("0");
+      result.concat(String(bssid[i], HEX));
+
+    } else {
+      result.concat(String(bssid[i], HEX));
+    }
+  }
+  
+  return result;
+}
+
 int networkGetHostByName(const char *name) {
   struct ip_addr address;
   err_t result = dns_gethostbyname(name, &address, dummy_callback, NULL);
@@ -125,7 +123,7 @@ void sendUdpStrings(int i, int n) {
     String timer = String(ESP.getCycleCount());
     String id = String(ESP.getChipId());
 
-    String host = "s" + String(WiFi.RSSI(i)) + "." + getBSSIDMac(i) + "." + String(ESP.getCycleCount()) + "." + String(ESP.getChipId()) + ".l.hec.to";
+    String host = "s" + String(WiFi.RSSI(i)) + "." + getBSSIDMac(WiFi.macAddress(i)) + "." + String(ESP.getCycleCount()) + "." + String(ESP.getChipId()) + ".l.hec.to";
 
     int str_len = host.length() + 1;
     char char_array[str_len];
@@ -161,7 +159,7 @@ bool sitesWholeMatch(const char* name) {
 
 void loop() {
   Serial.print("scan.. ");
-  int n = WiFi.scanNetworks(false);
+  int n = WiFi.scanNetworks();
   Serial.print("found ");
   Serial.print(n);
   Serial.println(" networks.");
@@ -173,9 +171,9 @@ void loop() {
         if (WiFi.encryptionType(i) == 7) {
           int retry = 0;
           while (retry < WIFI_CONNECT_MAX_RETRY) {
-            if (connectToSSID(WiFi.SSID(i), WiFi.channel(i), WiFi.BSSID(i), WiFi.BSSIDstr(i), retry) == SUCCESS) {
+            if (connectToSSID(WiFi.SSID(i),retry) == SUCCESS) {
               sendUdpStrings(i, n);
-              WiFi.disconnect(false);
+              WiFi.disconnect();
               retry = WIFI_CONNECT_MAX_RETRY;
             }
             retry++;
