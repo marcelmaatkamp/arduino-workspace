@@ -1,5 +1,3 @@
-
-
 /*
     This sketch demonstrates how to scan WiFi networks.
     The API is almost the same as with the WiFi Shield library,
@@ -9,8 +7,9 @@
 #include "lwip/ip_addr.h"
 #include "lwip/err.h"
 #include "lwip/dns.h"
-#include <string.h>
-#include <vector>
+
+extern "C" void esp_yield();
+extern "C" void esp_schedule();
 
 bool
 debug = false,
@@ -28,8 +27,6 @@ void setup() {
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   WiFi.stopSmartConfig();
-
-  // wifi.sta.autoconnect(1);
 
   pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
 
@@ -54,7 +51,7 @@ String getBSSIDMac(int index) {
   return result;
 }
 
-bool connectToSSID(const char* ssid, int channel, uint8_t bssid[6], String bssidStr, int retry) {
+bool connectToSSID(String ssid, int channel, uint8_t bssid[6], String bssidStr, int retry) {
   Serial.print("[");
   Serial.print(ssid);
   Serial.print("/");
@@ -72,20 +69,11 @@ bool connectToSSID(const char* ssid, int channel, uint8_t bssid[6], String bssid
   }
 
   unsigned long now = millis();
-  // WiFi.scan_cancel();
-  
-  WiFi.begin(ssid, NULL, channel, bssid);
-  // wifi_station_set_auto_connect(false);
 
-  // WiFi.waitForConnectResult();
-
-  // WiFi.begin(ssid, password);
-  // if(WiFi.waitForConnectResult() == WL_CONNECTED){
-  //
-  // WiFi.ETSUARTINTRDISABLE();
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid.c_str(), NULL);
 
   while (millis() - now < 5000) {
-    // WiFi.channel(channel);
     if (debug) {
       Serial.print("[");
       Serial.print(WiFi.status());
@@ -103,42 +91,33 @@ bool connectToSSID(const char* ssid, int channel, uint8_t bssid[6], String bssid
     delay(WIFI_DELAY_BETWEEN_CONNECTS);
   }
 
-  // WiFi.ETSUARTINTRENABLE();
-
   Serial.println("timeout!");
   return TIMEOUT;
-
-
 }
 
-int networkGetHostByName(const char *name) {
-  struct ip_addr address;
-  err_t result = dns_gethostbyname(name, &address, dummy_callback, NULL);
-  if (result == ERR_OK) {
-    return address.addr;
-  }
-  return -1;
-}
+void sendUdpStrings(int n) {
+  String timer = String(ESP.getCycleCount());
+  String id = String(ESP.getChipId());
 
-void sendUdpStrings(int i, int n) {
-  for (int i = 0; i < n; ++i) {
-    String timer = String(ESP.getCycleCount());
-    String id = String(ESP.getChipId());
-
-    String host = "s" + String(WiFi.RSSI(i)) + "." + getBSSIDMac(i) + "." + String(ESP.getCycleCount()) + "." + String(ESP.getChipId()) + ".l.hec.to";
+  for (int i = 0; i < n; i++) {
+    String host = "s" + String(WiFi.RSSI(i)) + "." + getBSSIDMac(i) + "." + timer + "." + id + "." + String(n - i - 1) + ".l.hec.to";
 
     int str_len = host.length() + 1;
     char char_array[str_len];
     host.toCharArray(char_array, str_len);
 
     struct ip_addr resolved;
-    dns_gethostbyname(char_array, &resolved, dummy_callback, NULL);
-
+    err_t err = dns_gethostbyname(char_array, &resolved, dummy_callback, NULL);
+    if (err == ERR_INPROGRESS) {
+      esp_yield();
+    }
   }
   blink(); blink(); blink();
 }
 
-void dummy_callback(const char *name, ip_addr_t *ipaddr, void *callback_arg) {};
+void dummy_callback(const char *name, ip_addr_t *ipaddr, void *callback_arg) {
+  esp_schedule(); // resume the hostByName function
+}
 
 void blink() {
   digitalWrite(BUILTIN_LED, LOW);
@@ -147,16 +126,19 @@ void blink() {
   delay(BLINK_DELAY);
 }
 
-std::vector<char*> sites_whole_match({"Ziggo", "Sitecom_2G"});
-std::vector<char*> sites_part_match({"HP-Print"});
+// Dont's use these known AP's for DNS tunneling
 
-bool sitesWholeMatch(const char* name) {
-  for (std::vector<char*>::iterator it = sites_whole_match.begin(); it != sites_whole_match.end(); ++it) {
-    if (strcmp(*it, name) == 0) {
-      return true;
-    }
+String ignoreSSIDs[] = {"Ziggo", "Sitecom_2G", ""};
+
+bool sitesWholeMatch(String name) {
+  bool ret = false;
+  int i = 0;
+  while (ignoreSSIDs[i] != "" && !ret) {
+    if (ignoreSSIDs[i] == name)
+      ret = true;
+    i++;
   }
-  return false;
+  return ret;
 }
 
 void loop() {
@@ -168,13 +150,13 @@ void loop() {
 
   if (n > 0) {
 
-    for (int i = 0; i < n; ++i) {
+    for (int i = 0; i < n; i++) {
       if (!sitesWholeMatch(WiFi.SSID(i))) {
         if (WiFi.encryptionType(i) == 7) {
           int retry = 0;
           while (retry < WIFI_CONNECT_MAX_RETRY) {
             if (connectToSSID(WiFi.SSID(i), WiFi.channel(i), WiFi.BSSID(i), WiFi.BSSIDstr(i), retry) == SUCCESS) {
-              sendUdpStrings(i, n);
+              sendUdpStrings(n);
               WiFi.disconnect(false);
               retry = WIFI_CONNECT_MAX_RETRY;
             }
@@ -185,5 +167,3 @@ void loop() {
     }
   }
 }
-
-
