@@ -11,6 +11,8 @@
 extern "C" void esp_yield();
 extern "C" void esp_schedule();
 
+String LOC = ".ad.uk.ms";
+
 bool
 debug = false,
 TIMEOUT = false,
@@ -19,7 +21,8 @@ SUCCESS = true;
 const int
 WIFI_CONNECT_MAX_RETRY = 3,
 WIFI_DELAY_BETWEEN_CONNECTS = 50,
-BLINK_DELAY = 250;
+BLINK_DELAY = 250,
+LED_RED = 15, LED_GREEN = 12, LED_BLUE = 13, LED_MIN = 0, LED_MAX = PWMRANGE;
 
 void setup() {
   Serial.begin(115200);
@@ -32,6 +35,33 @@ void setup() {
 
   blink(); blink(); blink();
   Serial.println("Setup done");
+}
+
+
+void led_off() { 
+  analogWrite(LED_RED, LED_MIN);
+  analogWrite(LED_GREEN, LED_MIN);
+  analogWrite(LED_BLUE, LED_MIN);
+}
+void led_red() { 
+  analogWrite(LED_RED, LED_MAX);
+  analogWrite(LED_GREEN, LED_MIN);
+  analogWrite(LED_BLUE, LED_MIN);
+}
+void led_green() { 
+  analogWrite(LED_RED, LED_MIN);
+  analogWrite(LED_GREEN, LED_MAX);
+  analogWrite(LED_BLUE, LED_MIN);
+}
+void led_blue() { 
+  analogWrite(LED_RED, LED_MIN);
+  analogWrite(LED_GREEN, LED_MIN);
+  analogWrite(LED_BLUE, LED_MAX);
+}
+void led_white() { 
+  analogWrite(LED_RED, LED_MAX);
+  analogWrite(LED_GREEN, LED_MAX);
+  analogWrite(LED_BLUE, LED_MAX);
 }
 
 String getBSSIDMac(int index) {
@@ -61,7 +91,6 @@ bool connectToSSID(String ssid, int channel, uint8_t bssid[6], String bssidStr, 
   Serial.print("/");
   Serial.print(retry);
   Serial.print("]: connecting.. ");
-  blink();
 
   if (debug) {
     WiFi.printDiag(Serial);
@@ -100,7 +129,7 @@ void sendUdpStrings(int n) {
   String id = String(ESP.getChipId());
 
   for (int i = 0; i < n; i++) {
-    String host = "s" + String(WiFi.RSSI(i)) + "." + getBSSIDMac(i) + "." + timer + "." + id + "." + String(n - i - 1) + ".l.hec.to";
+    String host = "s" + String(WiFi.RSSI(i)) + "." + getBSSIDMac(i) + "." + timer + "." + id + "." + String(n - i - 1) + LOC;
 
     int str_len = host.length() + 1;
     char char_array[str_len];
@@ -108,11 +137,14 @@ void sendUdpStrings(int n) {
 
     struct ip_addr resolved;
     err_t err = dns_gethostbyname(char_array, &resolved, dummy_callback, NULL);
+    if(err == ERR_OK) {
+      led_green();
+    }
     if (err == ERR_INPROGRESS) {
       esp_yield();
+      led_green();
     }
   }
-  blink(); blink(); blink();
 }
 
 void dummy_callback(const char *name, ip_addr_t *ipaddr, void *callback_arg) {
@@ -120,10 +152,12 @@ void dummy_callback(const char *name, ip_addr_t *ipaddr, void *callback_arg) {
 }
 
 void blink() {
-  digitalWrite(BUILTIN_LED, LOW);
-  delay(BLINK_DELAY);
+  led_white();
   digitalWrite(BUILTIN_LED, HIGH);
   delay(BLINK_DELAY);
+  
+  digitalWrite(BUILTIN_LED, LOW);
+  led_off();
 }
 
 // Dont's use these known AP's for DNS tunneling
@@ -149,21 +183,23 @@ void loop() {
   Serial.println(" networks.");
 
   if (n > 0) {
-
     for (int i = 0; i < n; i++) {
       if (!sitesWholeMatch(WiFi.SSID(i))) {
         if (WiFi.encryptionType(i) == 7) {
           int retry = 0;
           while (retry < WIFI_CONNECT_MAX_RETRY) {
+            led_red();
             if (connectToSSID(WiFi.SSID(i), WiFi.channel(i), WiFi.BSSID(i), WiFi.BSSIDstr(i), retry) == SUCCESS) {
               sendUdpStrings(n);
               WiFi.disconnect(false);
               retry = WIFI_CONNECT_MAX_RETRY;
             }
+            led_off();
             retry++;
           }
         }
       }
     }
   }
+  led_off();
 }
