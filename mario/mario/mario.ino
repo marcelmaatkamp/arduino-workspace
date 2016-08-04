@@ -177,6 +177,7 @@ int melSize = sizeof(melody) / sizeof(int);
 
 void setup() {
   Serial.begin(115200);
+  analogWriteRange(1023);
   pinMode(melodyPin, OUTPUT);//prepares buzzer
   Serial.println("Palying on pin " + melodyPin);
 }
@@ -201,7 +202,7 @@ void buzz(int targetPin, long frequency, long duration) {
 
   for (long i = 0; i < numCycles; i++) {
     analogWriteFreq(frequency);
-    analogWrite(targetPin, 128); 
+    analogWrite(targetPin, 512); 
     delayMicroseconds(delayValue); 
   }
 }

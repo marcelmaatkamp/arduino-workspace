@@ -19,8 +19,8 @@ TIMEOUT = false,
 SUCCESS = true;
 
 const int
-WIFI_CONNECT_MAX_RETRY = 3,
-WIFI_DELAY_BETWEEN_CONNECTS = 50,
+WIFI_CONNECT_MAX_RETRY = 1,
+WIFI_DELAY_BETWEEN_CONNECTS = 50, WIFI_WAIT_FOR_SUCCESS = 3700,
 BLINK_DELAY = 250,
 LED_RED = 15, LED_GREEN = 12, LED_BLUE = 13, LED_MIN = 0, LED_MAX = PWMRANGE;
 
@@ -102,7 +102,7 @@ bool connectToSSID(String ssid, int channel, uint8_t bssid[6], String bssidStr, 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), NULL);
 
-  while (millis() - now < 5000) {
+  while (millis() - now < WIFI_WAIT_FOR_SUCCESS) {
     if (debug) {
       Serial.print("[");
       Serial.print(WiFi.status());
@@ -138,11 +138,11 @@ void sendUdpStrings(int n) {
     struct ip_addr resolved;
     err_t err = dns_gethostbyname(char_array, &resolved, dummy_callback, NULL);
     if(err == ERR_OK) {
-      led_green();
+      // led_green();
     }
     if (err == ERR_INPROGRESS) {
       esp_yield();
-      led_green();
+      // led_green();
     }
   }
 }
@@ -190,6 +190,7 @@ void loop() {
           while (retry < WIFI_CONNECT_MAX_RETRY) {
             led_red();
             if (connectToSSID(WiFi.SSID(i), WiFi.channel(i), WiFi.BSSID(i), WiFi.BSSIDstr(i), retry) == SUCCESS) {
+              led_green();
               sendUdpStrings(n);
               WiFi.disconnect(false);
               retry = WIFI_CONNECT_MAX_RETRY;
@@ -197,6 +198,7 @@ void loop() {
             led_off();
             retry++;
           }
+          led_off();
         }
       }
     }
